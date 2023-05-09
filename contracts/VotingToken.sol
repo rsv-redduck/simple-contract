@@ -17,9 +17,10 @@ contract VotingToken is MyToken {
     );
     event VoteEnded(uint256 result);
 
-    mapping(uint256 => mapping(uint256 => uint256)) private _voteCount;
-    mapping(uint256 => mapping(address => bool)) private _hasVoted;
+    mapping(uint256 => uint256) private _voteCount;
+    mapping(address => bool) private _hasVoted;
     uint256[] private _votePrices;
+    address[] private _registeredVoters;
 
     uint256 private _votingNumber = 0;
     uint256 private _timeToVote = 1 days;
@@ -38,7 +39,7 @@ contract VotingToken is MyToken {
     }
 
     function vote(uint256 price_) external returns (bool) {
-        require(!_hasVoted[_votingNumber][msg.sender], "You already voted");
+        require(!_hasVoted[msg.sender], "You already voted");
         require(
             (_tokenTotalSupply.mul(_minTokenAmount).div(10000)) <=
                 _balances[msg.sender],
@@ -50,9 +51,9 @@ contract VotingToken is MyToken {
             "Voting not started or ended"
         );
 
-        _voteCount[_votingNumber][price_] = _voteCount[_votingNumber][price_].add(_balances[msg.sender]);
+        _voteCount[price_] = _voteCount[price_].add(_balances[msg.sender]);
         _votePrices.push(price_);
-        _hasVoted[_votingNumber][msg.sender] = true;
+        _hasVoted[msg.sender] = true;
 
         return true;
     }
@@ -69,7 +70,15 @@ contract VotingToken is MyToken {
         _votingNumber++;
 
         // Clear the vote data befor the next voting
+        for (uint256 i = 0; i < _votePrices.length; i++) {
+            delete _voteCount[_votePrices[i]];
+        }
         delete _votePrices;
+
+        for (uint256 i = 0; i < _registeredVoters.length; i++) {
+            delete _hasVoted[_registeredVoters[i]];
+        }
+        delete _registeredVoters;
 
         emit VotingStarted(
             _votingStartedTime,
@@ -91,9 +100,9 @@ contract VotingToken is MyToken {
         uint256 winningVoteCount = 0;
 
         for (uint256 i = 0; i < _votePrices.length; i++) {
-            if (_voteCount[_votingNumber][_votePrices[i]] > winningVoteCount) {
+            if (_voteCount[_votePrices[i]] > winningVoteCount) {
                 winningPrice = _votePrices[i];
-                winningVoteCount = _voteCount[_votingNumber][_votePrices[i]];
+                winningVoteCount = _voteCount[_votePrices[i]];
             }
         }
 
